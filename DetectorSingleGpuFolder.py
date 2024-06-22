@@ -5,7 +5,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 WATER_DIR = r"C:\Users\yegor\Downloads\water\WatermarkDataset\images\val"
 # Load the trained model
-model = load_model(r"C:\Users\yegor\Downloads\water\wm-nowm\watermark_detection_model_V2_60000_Data_Set.h5")
+model = load_model(r"C:\Users\yegor\Downloads\water\watermark_detection_model_V2_60000_Data_Set.h5")
 
 def preprocess_image(img_path, target_size=(224, 224)):
     img = image.load_img(img_path, target_size=target_size)
