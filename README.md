@@ -54,7 +54,7 @@ The system uses a pre-trained VGG16 model as a base, fine-tuned on a dataset of 
 
 1. Clone this repository:
    ```
-   git clone https://github.com/YegorCherov/watermark-detector.git
+   git clone https://github.com/YegorCherov/WatermarkDetector.git
    ```
 
 2. Install the required dependencies:
