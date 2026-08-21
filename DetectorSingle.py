@@ -1,39 +1,48 @@
 import os
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
+from ultralytics import YOLO
 
 # Load the trained model
-model = load_model(r"C:\Users\yegor\Downloads\water\wm-nowm\watermark_detection_model.h5")
-
-def preprocess_image(img_path):
-    img = image.load_img(img_path, target_size=(224, 224))
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
-    img_array /= 255.0  # Normalize
-    return img_array
+model = YOLO('yolov8n.pt')
 
 def predict_watermark(img_path):
-    img_to_predict = preprocess_image(img_path)
-    prediction = model.predict(img_to_predict)
-    return img_path, prediction[0][0]
+    results = model(img_path, verbose=False)
 
-def process_images(image_paths):
-    results = []
-    for img_path in image_paths:
-        result = predict_watermark(img_path)
-        results.append(result)
-    return results
+    detections = []
+
+    for r in results:
+        boxes = r.boxes
+        for box in boxes:
+            b = box.xyxy[0].tolist()
+            c = box.conf[0].item()
+            cls_id = int(box.cls[0].item())
+            cls_name = model.names[cls_id]
+
+            detections.append({
+                'box': b,
+                'confidence': c,
+                'class_name': cls_name
+            })
+
+    return img_path, detections
 
 if __name__ == "__main__":
     # Directory containing images
-    image_dir = r'C:\Users\yegor\Downloads\water\WatermarkDataset\images\train 420'
-    image_paths = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.jpg')]
+    image_dir = r"C:\Users\yegor\Downloads\water\WatermarkDataset\images\train 420"
 
-    # Process images
-    predictions = process_images(image_paths)
+    if os.path.exists(image_dir):
+        image_paths = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.jpg') or f.endswith('.png')]
 
-    # Output results
-    for img_path, score in predictions:
-        print(f"{img_path}: {'Watermark detected' if score > 0.5 else 'No watermark detected'}")
+        predictions = []
+        for img_path in image_paths:
+            predictions.append(predict_watermark(img_path))
+
+        # Output results
+        for img_path, detections in predictions:
+            if detections:
+                print(f"{img_path}: Watermark detected!")
+                for i, det in enumerate(detections):
+                    print(f"  Detection {i+1}: Class: {det['class_name']}, Confidence: {det['confidence']:.2f}, Box: {det['box']}")
+            else:
+                print(f"{img_path}: No watermark detected")
+    else:
+        print(f"Directory {image_dir} does not exist. Please update the path.")

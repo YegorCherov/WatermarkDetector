@@ -1,56 +1,33 @@
-import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten
-from tensorflow.keras.optimizers import Adam
-from PIL import ImageFile
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+from ultralytics import YOLO
 
-PATH_TO_TRAIN = r"C:\Users\yegor\Downloads\water\wm-nowm\train"
-PATH_TO_VALID = r"C:\Users\yegor\Downloads\water\wm-nowm\valid"
+# Note: For YOLOv8 training, your dataset needs to be in YOLO format.
+# This means you should have a data.yaml file defining paths to your
+# train and val image directories, and the number of classes and class names.
+# Additionally, each image should have a corresponding .txt file with the
+# same name containing bounding box coordinates and class labels for each object.
+# This supports localization, multi-scale analysis, and identifying different
+# types of watermarks.
 
-# Load pre-trained VGG16 model without top layer
-base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+# Example data.yaml structure:
+# train: C:\Users\yegor\Downloads\water\wm-nowm\train\images
+# val: C:\Users\yegor\Downloads\water\wm-nowm\valid\images
+# nc: 1  # number of classes
+# names: ['watermark']  # class names (can add more for different watermark types)
 
-# Freeze the base model layers
-base_model.trainable = False
+if __name__ == '__main__':
+    # Load a model
+    model = YOLO('yolov8n.pt')  # load a pretrained model (recommended for training)
 
-# Create a new model on top
-model = Sequential([
-    base_model,
-    Flatten(),
-    Dense(256, activation='relu'),
-    Dense(1, activation='sigmoid')  # Binary classification
-])
+    # Train the model
+    # Update the 'data' argument to point to your data.yaml file
+    results = model.train(
+        data='data.yaml',
+        epochs=10,
+        imgsz=640,
+        batch=16,
+        project='watermark_detection',
+        name='yolov8_watermark_model'
+    )
 
-# Compile the model
-model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
-
-# Setup data generators for training and validation
-train_datagen = ImageDataGenerator(rescale=1./255)
-validation_datagen = ImageDataGenerator(rescale=1./255)
-
-train_generator = train_datagen.flow_from_directory(
-    PATH_TO_TRAIN,
-    target_size=(224, 224),
-    batch_size=32,
-    class_mode='binary')
-
-validation_generator = validation_datagen.flow_from_directory(
-    PATH_TO_VALID,
-    target_size=(224, 224),
-    batch_size=32,
-    class_mode='binary')
-
-# Train the model
-history = model.fit(
-    train_generator,
-    steps_per_epoch=train_generator.samples // train_generator.batch_size,
-    epochs=10,
-    validation_data=validation_generator,
-    validation_steps=validation_generator.samples // validation_generator.batch_size
-)
-
-# Save the model
-model.save('watermark_detection_model_V2_60000_Data_Set.h5')
+    # Save the model is handled automatically by Ultralytics YOLO,
+    # it will be saved in watermark_detection/yolov8_watermark_model/weights/best.pt

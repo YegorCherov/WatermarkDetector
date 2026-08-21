@@ -1,23 +1,33 @@
 import cv2
 import os
 import shutil
-import numpy as np
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
-WATER_DIR = r"C:\Users\yegor\Downloads\water\watermark_detector\videos"
-# Load the trained model
-model = load_model(r"C:\Users\yegor\Downloads\water\wm-nowm\watermark_detection_model_V2_60000_Data_Set.h5")
+from ultralytics import YOLO
 
-def preprocess_frame(frame, target_size=(224, 224)):
-    frame = cv2.resize(frame, target_size)
-    frame_array = image.img_to_array(frame)
-    frame_array /= 255.0  # Normalize
-    return np.expand_dims(frame_array, axis=0)  # Add batch dimension
+WATER_DIR = r"C:\Users\yegor\Downloads\water\watermark_detector\videos"
+
+# Load the trained model
+model = YOLO('yolov8n.pt')
 
 def predict_watermark_on_frame(frame):
-    processed_frame = preprocess_frame(frame)
-    prediction = model.predict(processed_frame)
-    return prediction[0][0]
+    results = model(frame, verbose=False)
+
+    detections = []
+
+    for r in results:
+        boxes = r.boxes
+        for box in boxes:
+            b = box.xyxy[0].tolist()
+            c = box.conf[0].item()
+            cls_id = int(box.cls[0].item())
+            cls_name = model.names[cls_id]
+
+            detections.append({
+                'box': b,
+                'confidence': c,
+                'class_name': cls_name
+            })
+
+    return detections
 
 def process_video(video_path, frame_interval=30, watermark_threshold=0.5):
     cap = cv2.VideoCapture(video_path)
@@ -30,8 +40,10 @@ def process_video(video_path, frame_interval=30, watermark_threshold=0.5):
             break
 
         if frame_count % frame_interval == 0:
-            prediction = predict_watermark_on_frame(frame)
-            if prediction > watermark_threshold:
+            detections = predict_watermark_on_frame(frame)
+
+            # Check if any detection is above threshold
+            if any(det['confidence'] > watermark_threshold for det in detections):
                 watermark_detected = True
                 break
 
@@ -48,7 +60,7 @@ def sort_videos(video_dir):
     os.makedirs(not_watermarked_dir, exist_ok=True)
 
     for video_file in os.listdir(video_dir):
-        if video_file.endswith('.mp4'):
+        if video_file.endswith(('.mp4', '.avi', '.mov', '.mkv')):
             video_path = os.path.join(video_dir, video_file)
             is_watermarked = process_video(video_path)
 
@@ -58,4 +70,7 @@ def sort_videos(video_dir):
 
 if __name__ == "__main__":
     video_directory = WATER_DIR
-    sort_videos(video_directory)
+    if os.path.exists(video_directory):
+        sort_videos(video_directory)
+    else:
+        print(f"Directory {video_directory} does not exist. Please update the path.")
